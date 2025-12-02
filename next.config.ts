@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Content-Security-Policy",
-            value: "frame-ancestors 'self' *.schoolbox.com.au *.schoolbox.education",
+            value: "frame-ancestors 'self' *.schoolbox.com.au *.schoolbox.education schoolbox.scr.vic.edu.au *.scr.vic.edu.au",
           },
         ],
       },
