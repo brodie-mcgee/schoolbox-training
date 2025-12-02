@@ -76,6 +76,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - api/verify (Schoolbox Remote Service auth endpoint)
      */
-    "/((?!_next/static|_next/image|favicon.ico|api/verify).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/verify|api/debug).*)",
   ],
 };
