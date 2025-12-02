@@ -22,6 +22,14 @@ export function verifySchoolboxSignature(
   const timestamp = parseInt(time, 10);
   const now = Math.floor(Date.now() / 1000);
 
+  console.log("[verifySchoolboxSignature] Input params:", {
+    key,
+    time,
+    id,
+    secretPrefix: SHARED_SECRET.substring(0, 4) + "...",
+    secretLength: SHARED_SECRET.length,
+  });
+
   // Check timestamp is within ±5 minutes
   if (Math.abs(now - timestamp) > TIME_TOLERANCE_SECONDS) {
     console.log("[verifySchoolboxSignature] Timestamp out of tolerance:", {
@@ -34,19 +42,21 @@ export function verifySchoolboxSignature(
   }
 
   // Compute expected SHA1 hash: SHA1(secret + time + id)
+  const concatenated = SHARED_SECRET + time + id;
+  console.log("[verifySchoolboxSignature] Concatenated string length:", concatenated.length);
+
   const expected = crypto
     .createHash("sha1")
-    .update(SHARED_SECRET + time + id)
+    .update(concatenated)
     .digest("hex");
 
   const isValid = key === expected;
 
-  if (!isValid) {
-    console.log("[verifySchoolboxSignature] Signature mismatch:", {
-      provided: key,
-      expected,
-    });
-  }
+  console.log("[verifySchoolboxSignature] Comparison:", {
+    provided: key,
+    expected,
+    isValid,
+  });
 
   return isValid;
 }
