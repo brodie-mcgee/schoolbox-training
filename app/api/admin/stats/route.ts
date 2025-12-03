@@ -2,10 +2,16 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { createServerSupabaseClient, TABLES } from "@/lib/supabase/server";
 
+// Helper to check if user can access admin panel (admin or HR)
+function canAccessAdmin(session: { isAdmin: boolean; isHR?: boolean; roles?: string[] } | null): boolean {
+  if (!session) return false;
+  return session.isAdmin || session.isHR || session.roles?.includes("hr") || false;
+}
+
 export async function GET() {
   try {
     const session = await getSession();
-    if (!session?.isAdmin) {
+    if (!canAccessAdmin(session)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 

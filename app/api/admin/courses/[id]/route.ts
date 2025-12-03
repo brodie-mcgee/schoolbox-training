@@ -2,13 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { createServerSupabaseClient, TABLES } from "@/lib/supabase/server";
 
+// Helper to check if user can manage training content (admin or HR)
+function canManageTraining(session: { isAdmin: boolean; isHR?: boolean; roles?: string[] } | null): boolean {
+  if (!session) return false;
+  return session.isAdmin || session.isHR || session.roles?.includes("hr") || false;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getSession();
-    if (!session?.isAdmin) {
+    if (!canManageTraining(session)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -45,7 +51,7 @@ export async function PATCH(
 ) {
   try {
     const session = await getSession();
-    if (!session?.isAdmin) {
+    if (!canManageTraining(session)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -93,7 +99,7 @@ export async function DELETE(
 ) {
   try {
     const session = await getSession();
-    if (!session?.isAdmin) {
+    if (!canManageTraining(session)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 

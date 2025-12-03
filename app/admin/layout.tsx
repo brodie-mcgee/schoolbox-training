@@ -11,13 +11,23 @@ import {
   ChevronLeft,
 } from "lucide-react";
 
-const adminNavItems = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/modules", label: "Modules", icon: BookOpen },
-  { href: "/admin/courses", label: "Courses", icon: GraduationCap },
-  { href: "/admin/users", label: "Users & Roles", icon: Users },
-  { href: "/admin/reports", label: "Reports", icon: BarChart3 },
-];
+// Navigation items - some are admin-only
+const getAdminNavItems = (isAdmin: boolean) => {
+  const items = [
+    { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/admin/modules", label: "Modules", icon: BookOpen },
+    { href: "/admin/courses", label: "Courses", icon: GraduationCap },
+  ];
+
+  // Users & Roles is admin-only (not for HR)
+  if (isAdmin) {
+    items.push({ href: "/admin/users", label: "Users & Roles", icon: Users });
+  }
+
+  items.push({ href: "/admin/reports", label: "Reports", icon: BarChart3 });
+
+  return items;
+};
 
 export default async function AdminLayout({
   children,
@@ -30,9 +40,14 @@ export default async function AdminLayout({
     redirect("/unauthorized");
   }
 
-  if (!session.isAdmin) {
+  // Allow both admin and HR users to access admin panel
+  const canAccessAdmin = session.isAdmin || session.isHR || session.roles?.includes("hr");
+  if (!canAccessAdmin) {
     redirect("/dashboard?error=forbidden");
   }
+
+  // Get nav items based on user role
+  const adminNavItems = getAdminNavItems(session.isAdmin);
 
   return (
     <div className="min-h-screen bg-gray-100">

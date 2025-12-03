@@ -52,11 +52,19 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/unauthorized?error=forbidden", request.url));
     }
 
-    // If accessing /admin routes, verify admin role
+    // If accessing /admin routes, verify admin OR HR role
+    // HR can access admin panel for module/course management
     if (pathname.startsWith("/admin")) {
-      if (!session.isAdmin) {
-        console.log("[middleware] Non-admin accessing admin route, redirecting");
+      const canAccessAdmin = session.isAdmin || session.isHR || session.roles?.includes("hr");
+      if (!canAccessAdmin) {
+        console.log("[middleware] User without admin/HR role accessing admin route, redirecting");
         return NextResponse.redirect(new URL("/dashboard?error=forbidden", request.url));
+      }
+
+      // Users & Roles page is admin-only (not HR)
+      if (pathname.startsWith("/admin/users") && !session.isAdmin) {
+        console.log("[middleware] Non-admin accessing users page, redirecting");
+        return NextResponse.redirect(new URL("/admin?error=forbidden", request.url));
       }
     }
 
