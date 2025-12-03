@@ -4,6 +4,98 @@ import type { SchoolboxUser } from "./auth";
 const SCHOOLBOX_BASE_URL = process.env.SCHOOLBOX_BASE_URL || "https://placeholder.schoolbox.com";
 const SCHOOLBOX_API_TOKEN = process.env.SCHOOLBOX_API_TOKEN || "placeholder-token";
 
+export interface SchoolboxStaffMember {
+  id: number;
+  externalId: string | null;
+  username: string;
+  email: string | null;
+  title: string | null;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  role: {
+    type: string;
+    name: string;
+  };
+}
+
+/**
+ * Fetches all staff members from Schoolbox API
+ * Uses pagination to get all staff (max 500 per request)
+ *
+ * @returns Array of staff members
+ */
+export async function getAllSchoolboxStaff(): Promise<SchoolboxStaffMember[]> {
+  console.log("[getAllSchoolboxStaff] Fetching all staff from Schoolbox...");
+
+  const allStaff: SchoolboxStaffMember[] = [];
+  let cursor: string | null = null;
+  let pageCount = 0;
+  const maxPages = 20; // Safety limit
+
+  do {
+    // Build filter for staff role
+    const filter = { role: { type: "staff" } };
+    const filterEncoded = encodeURIComponent(JSON.stringify(filter));
+
+    // Build URL with pagination
+    let url = `${SCHOOLBOX_BASE_URL}/api/user?filter=${filterEncoded}&limit=500`;
+    if (cursor) {
+      url += `&cursor=${encodeURIComponent(cursor)}`;
+    }
+
+    console.log(`[getAllSchoolboxStaff] Fetching page ${pageCount + 1}...`);
+
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${SCHOOLBOX_API_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("[getAllSchoolboxStaff] API error:", response.status, errorText.substring(0, 200));
+        throw new Error(`Schoolbox API error: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.data && Array.isArray(result.data)) {
+        // Map to our expected format
+        const staffPage = result.data.map((user: SchoolboxUser) => ({
+          id: user.id,
+          externalId: user.externalId?.toString() || null,
+          username: user.username,
+          email: user.email || null,
+          title: user.title || null,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          fullName: user.fullName || `${user.firstName} ${user.lastName}`,
+          role: user.role,
+        }));
+
+        allStaff.push(...staffPage);
+        console.log(`[getAllSchoolboxStaff] Got ${staffPage.length} staff, total: ${allStaff.length}`);
+      }
+
+      // Get next cursor for pagination
+      cursor = result.meta?.cursor?.next || null;
+      pageCount++;
+
+    } catch (error) {
+      console.error("[getAllSchoolboxStaff] Error fetching staff:", error);
+      throw error;
+    }
+
+  } while (cursor && pageCount < maxPages);
+
+  console.log(`[getAllSchoolboxStaff] Completed. Total staff: ${allStaff.length}`);
+  return allStaff;
+}
+
 /**
  * Fetches user details from Schoolbox API by internal user ID
  * Uses the direct GET /api/user/{id} endpoint

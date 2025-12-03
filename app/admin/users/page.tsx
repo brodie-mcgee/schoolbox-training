@@ -10,6 +10,8 @@ import {
   Check,
   X,
   Loader2,
+  RefreshCw,
+  CloudDownload,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,6 +22,19 @@ interface User {
   roles: string[];
   active: boolean;
   created_at: string;
+}
+
+interface SyncPreview {
+  name: string;
+  email: string;
+  username: string;
+}
+
+interface SyncStats {
+  total: number;
+  created: number;
+  updated: number;
+  skipped: number;
 }
 
 const AVAILABLE_ROLES = [
@@ -36,6 +51,13 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [savingRoles, setSavingRoles] = useState<string | null>(null);
   const [pendingRoles, setPendingRoles] = useState<string[]>([]);
+
+  // Sync state
+  const [showSyncModal, setShowSyncModal] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncPreview, setSyncPreview] = useState<SyncPreview[]>([]);
+  const [syncTotalStaff, setSyncTotalStaff] = useState(0);
+  const [syncStats, setSyncStats] = useState<SyncStats | null>(null);
 
   useEffect(() => {
     loadUsers();
@@ -108,6 +130,65 @@ export default function UsersPage() {
     }
   }
 
+  async function openSyncModal() {
+    setShowSyncModal(true);
+    setSyncLoading(true);
+    setSyncStats(null);
+    setSyncPreview([]);
+
+    try {
+      const response = await fetch("/api/admin/users/sync");
+      if (response.ok) {
+        const data = await response.json();
+        setSyncPreview(data.staff || []);
+        setSyncTotalStaff(data.totalStaff || 0);
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to fetch Schoolbox staff");
+        setShowSyncModal(false);
+      }
+    } catch (error) {
+      console.error("Failed to preview sync:", error);
+      toast.error("Failed to connect to Schoolbox");
+      setShowSyncModal(false);
+    } finally {
+      setSyncLoading(false);
+    }
+  }
+
+  async function performSync() {
+    setSyncLoading(true);
+    try {
+      const response = await fetch("/api/admin/users/sync", {
+        method: "POST",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSyncStats(data.stats);
+        toast.success(
+          `Sync complete: ${data.stats.created} created, ${data.stats.updated} updated`
+        );
+        // Reload users list
+        loadUsers();
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Sync failed");
+      }
+    } catch (error) {
+      console.error("Failed to sync:", error);
+      toast.error("Failed to sync with Schoolbox");
+    } finally {
+      setSyncLoading(false);
+    }
+  }
+
+  function closeSyncModal() {
+    setShowSyncModal(false);
+    setSyncPreview([]);
+    setSyncStats(null);
+  }
+
   const filteredUsers = users.filter(
     (user) =>
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -135,11 +216,20 @@ export default function UsersPage() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Users & Roles</h1>
-        <p className="text-gray-600">
-          Manage user roles and permissions. Assign HR access for compliance dashboards.
-        </p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Users & Roles</h1>
+          <p className="text-gray-600">
+            Manage user roles and permissions. Assign HR access for compliance dashboards.
+          </p>
+        </div>
+        <button
+          onClick={openSyncModal}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <CloudDownload className="w-4 h-4" />
+          Sync from Schoolbox
+        </button>
       </div>
 
       {/* Search */}
@@ -301,6 +391,144 @@ export default function UsersPage() {
           </table>
         )}
       </div>
+
+      {/* Sync Modal */}
+      {showSyncModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <RefreshCw className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">
+                    Sync Staff from Schoolbox
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    Import staff members from Schoolbox LMS
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={closeSyncModal}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {syncLoading && !syncStats ? (
+                <div className="text-center py-8">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600" />
+                  <p className="text-gray-500 mt-2">
+                    {syncPreview.length === 0
+                      ? "Fetching staff from Schoolbox..."
+                      : "Syncing users..."}
+                  </p>
+                </div>
+              ) : syncStats ? (
+                <div className="space-y-4">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-green-800 mb-2">
+                      Sync Complete!
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-green-600">Total processed:</span>{" "}
+                        <strong>{syncStats.total}</strong>
+                      </div>
+                      <div>
+                        <span className="text-green-600">Created:</span>{" "}
+                        <strong>{syncStats.created}</strong>
+                      </div>
+                      <div>
+                        <span className="text-green-600">Updated:</span>{" "}
+                        <strong>{syncStats.updated}</strong>
+                      </div>
+                      <div>
+                        <span className="text-green-600">Skipped:</span>{" "}
+                        <strong>{syncStats.skipped}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-blue-800">
+                      Found <strong>{syncTotalStaff}</strong> staff members in
+                      Schoolbox.
+                      {syncTotalStaff > 50 && (
+                        <span className="text-sm text-blue-600 block mt-1">
+                          Showing first 50 for preview.
+                        </span>
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                            Name
+                          </th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                            Email
+                          </th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                            Username
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {syncPreview.map((staff, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50">
+                            <td className="px-4 py-2 text-gray-900">
+                              {staff.name}
+                            </td>
+                            <td className="px-4 py-2 text-gray-500">
+                              {staff.email || "—"}
+                            </td>
+                            <td className="px-4 py-2 text-gray-500">
+                              {staff.username}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-3">
+              <button
+                onClick={closeSyncModal}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                {syncStats ? "Close" : "Cancel"}
+              </button>
+              {!syncStats && (
+                <button
+                  onClick={performSync}
+                  disabled={syncLoading || syncPreview.length === 0}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {syncLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                  Sync {syncTotalStaff} Staff
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
