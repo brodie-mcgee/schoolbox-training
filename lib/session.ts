@@ -11,7 +11,9 @@ export interface Session {
   email: string;           // Email address
   name: string;            // Full name
   role: "staff";           // This app is staff-only
-  isAdmin: boolean;        // Has admin privileges
+  roles: string[];         // All roles from database (admin, hr, staff, etc.)
+  isAdmin: boolean;        // Has admin privileges (admin or super_admin role)
+  isHR: boolean;           // Has HR privileges for compliance dashboards
   expires: number;         // Expiry timestamp
 }
 

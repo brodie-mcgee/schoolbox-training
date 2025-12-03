@@ -6,6 +6,8 @@ import {
   Award,
   Clock,
   ChevronRight,
+  Settings,
+  BarChart3,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -176,6 +178,62 @@ export default async function DashboardPage() {
             </div>
           </Link>
         </div>
+
+        {/* Admin/HR Section */}
+        {(session.isAdmin || session.isHR) && (
+          <div className="mt-8">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              {session.isAdmin ? "Administration" : "HR Tools"}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {session.isAdmin && (
+                <Link
+                  href="/admin"
+                  className="bg-gray-900 rounded-xl shadow-sm p-6 hover:bg-gray-800 transition-all group"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center">
+                        <Settings className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-white">Admin Panel</h3>
+                        <p className="text-sm text-gray-400">
+                          Manage modules, courses, and users
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-purple-400 transition-colors" />
+                  </div>
+                </Link>
+              )}
+
+              {(session.isAdmin || session.isHR) && (
+                <Link
+                  href="/admin/reports"
+                  className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:border-green-200 hover:shadow-md transition-all group"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                        <BarChart3 className="w-6 h-6 text-green-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900">
+                          Compliance Reports
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          Analytics and training compliance
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-green-600 transition-colors" />
+                  </div>
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Coming Soon Notice */}
         <div className="mt-8 bg-purple-50 rounded-xl p-6 border border-purple-100">

@@ -59,6 +59,15 @@ export function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL("/dashboard?error=forbidden", request.url));
       }
     }
+
+    // If accessing /hr routes, verify HR or admin role
+    if (pathname.startsWith("/hr")) {
+      const isHR = session.isHR || session.isAdmin || session.roles?.includes("hr");
+      if (!isHR) {
+        console.log("[middleware] Non-HR user accessing HR route, redirecting");
+        return NextResponse.redirect(new URL("/dashboard?error=forbidden", request.url));
+      }
+    }
   } catch (error) {
     console.error("[middleware] Session parse error:", error);
     return NextResponse.redirect(new URL("/unauthorized?error=invalid", request.url));

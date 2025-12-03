@@ -74,10 +74,16 @@ export async function GET(request: NextRequest) {
       username: user,
     });
 
-    // Determine if user is admin
+    // Get user roles from database
+    const userRoles: string[] = dbUser.roles || ["staff"];
+
+    // Determine if user is admin (either in ADMIN_USERNAMES or has admin/super_admin role)
     const isAdmin = ADMIN_USERNAMES.includes(user.toLowerCase()) ||
-                    dbUser.roles?.includes("admin") ||
-                    dbUser.roles?.includes("hr");
+                    userRoles.includes("admin") ||
+                    userRoles.includes("super_admin");
+
+    // Determine if user has HR role (for compliance dashboards and analytics)
+    const isHR = userRoles.includes("hr") || isAdmin;
 
     // Set session cookie
     await setSession({
@@ -88,7 +94,9 @@ export async function GET(request: NextRequest) {
       email,
       name: schoolboxUser.fullName || `${schoolboxUser.firstName} ${schoolboxUser.lastName}`,
       role: "staff",
+      roles: userRoles,
       isAdmin,
+      isHR,
     });
     console.log("[/api/verify] Session cookie set successfully");
 
