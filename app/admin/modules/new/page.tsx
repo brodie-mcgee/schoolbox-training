@@ -16,6 +16,11 @@ import {
   Clock,
   Target,
   RotateCcw,
+  Upload,
+  CheckSquare,
+  ToggleLeft,
+  Type,
+  ListChecks,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,9 +36,13 @@ interface Lesson {
 interface QuizQuestion {
   id: string;
   question: string;
-  type: "multiple_choice" | "true_false";
+  type: "multiple_choice" | "true_false" | "short_answer" | "multi_select" | "file_upload";
   options?: string[];
-  correct_answer: string | number;
+  correct_answer?: string | number | number[];
+  required?: boolean;
+  hint?: string;
+  accepted_file_types?: string[];
+  max_file_size_mb?: number;
 }
 
 const CATEGORIES = [
@@ -44,6 +53,14 @@ const CATEGORIES = [
   "Leadership",
   "Onboarding",
   "Other",
+];
+
+const QUESTION_TYPES = [
+  { value: "multiple_choice", label: "Multiple Choice", icon: ListChecks, description: "Single answer from options" },
+  { value: "true_false", label: "True/False", icon: ToggleLeft, description: "True or false question" },
+  { value: "short_answer", label: "Short Answer", icon: Type, description: "Text input response" },
+  { value: "multi_select", label: "Multi-Select", icon: CheckSquare, description: "Multiple correct answers" },
+  { value: "file_upload", label: "File Upload", icon: Upload, description: "Upload certificate/document" },
 ];
 
 export default function NewModulePage() {
@@ -104,17 +121,58 @@ export default function NewModulePage() {
     setFormData({ ...formData, lessons: newLessons });
   }
 
-  function addQuestion(lessonIndex: number) {
+  function addQuestion(lessonIndex: number, questionType: QuizQuestion["type"]) {
     const lesson = formData.lessons[lessonIndex];
     if (lesson.type !== "quiz") return;
 
-    const newQuestion: QuizQuestion = {
+    const baseQuestion = {
       id: `q_${Date.now()}`,
       question: "",
-      type: "multiple_choice",
-      options: ["", "", "", ""],
-      correct_answer: 0,
+      type: questionType,
+      required: true,
     };
+
+    let newQuestion: QuizQuestion;
+
+    switch (questionType) {
+      case "multiple_choice":
+        newQuestion = {
+          ...baseQuestion,
+          options: ["", "", "", ""],
+          correct_answer: 0,
+        };
+        break;
+      case "true_false":
+        newQuestion = {
+          ...baseQuestion,
+          options: ["True", "False"],
+          correct_answer: 0,
+        };
+        break;
+      case "short_answer":
+        newQuestion = {
+          ...baseQuestion,
+          correct_answer: "",
+          hint: "",
+        };
+        break;
+      case "multi_select":
+        newQuestion = {
+          ...baseQuestion,
+          options: ["", "", "", ""],
+          correct_answer: [],
+        };
+        break;
+      case "file_upload":
+        newQuestion = {
+          ...baseQuestion,
+          accepted_file_types: [".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx"],
+          max_file_size_mb: 10,
+        };
+        break;
+      default:
+        newQuestion = baseQuestion as QuizQuestion;
+    }
 
     updateLesson(lessonIndex, {
       questions: [...(lesson.questions || []), newQuestion],
@@ -144,6 +202,20 @@ export default function NewModulePage() {
     updateLesson(lessonIndex, {
       questions: lesson.questions.filter((_, i) => i !== questionIndex),
     });
+  }
+
+  function toggleMultiSelectAnswer(lessonIndex: number, questionIndex: number, optionIndex: number) {
+    const lesson = formData.lessons[lessonIndex];
+    if (!lesson.questions) return;
+
+    const question = lesson.questions[questionIndex];
+    const currentAnswers = (question.correct_answer as number[]) || [];
+
+    const newAnswers = currentAnswers.includes(optionIndex)
+      ? currentAnswers.filter(a => a !== optionIndex)
+      : [...currentAnswers, optionIndex];
+
+    updateQuestion(lessonIndex, questionIndex, { correct_answer: newAnswers });
   }
 
   // Calculate total duration from lessons
@@ -185,6 +257,286 @@ export default function NewModulePage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function renderQuestionEditor(lesson: Lesson, lessonIndex: number, q: QuizQuestion, qIndex: number) {
+    const questionTypeInfo = QUESTION_TYPES.find(qt => qt.value === q.type);
+    const Icon = questionTypeInfo?.icon || FileQuestion;
+
+    return (
+      <div key={q.id} className="p-4 bg-gray-50 rounded-lg space-y-3">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-2">
+            <Icon className="w-4 h-4 text-purple-500" />
+            <span className="text-sm font-medium text-gray-600">
+              Question {qIndex + 1} - {questionTypeInfo?.label}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => removeQuestion(lessonIndex, qIndex)}
+            className="p-1 text-red-500 hover:text-red-700"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <input
+          type="text"
+          value={q.question}
+          onChange={(e) =>
+            updateQuestion(lessonIndex, qIndex, { question: e.target.value })
+          }
+          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+          placeholder="Enter your question..."
+        />
+
+        {/* Multiple Choice */}
+        {q.type === "multiple_choice" && (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              {q.options?.map((opt, optIndex) => (
+                <div key={optIndex} className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name={`correct_${q.id}`}
+                    checked={q.correct_answer === optIndex}
+                    onChange={() =>
+                      updateQuestion(lessonIndex, qIndex, { correct_answer: optIndex })
+                    }
+                    className="text-purple-600"
+                  />
+                  <input
+                    type="text"
+                    value={opt}
+                    onChange={(e) => {
+                      const newOptions = [...(q.options || [])];
+                      newOptions[optIndex] = e.target.value;
+                      updateQuestion(lessonIndex, qIndex, { options: newOptions });
+                    }}
+                    className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder={`Option ${optIndex + 1}`}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  const newOptions = [...(q.options || []), ""];
+                  updateQuestion(lessonIndex, qIndex, { options: newOptions });
+                }}
+                className="text-xs text-purple-600 hover:text-purple-800"
+              >
+                + Add option
+              </button>
+              {(q.options?.length || 0) > 2 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newOptions = q.options?.slice(0, -1) || [];
+                    updateQuestion(lessonIndex, qIndex, { options: newOptions });
+                  }}
+                  className="text-xs text-red-600 hover:text-red-800"
+                >
+                  - Remove last option
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-gray-500">
+              Select the radio button next to the correct answer
+            </p>
+          </>
+        )}
+
+        {/* True/False */}
+        {q.type === "true_false" && (
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name={`tf_${q.id}`}
+                checked={q.correct_answer === 0}
+                onChange={() => updateQuestion(lessonIndex, qIndex, { correct_answer: 0 })}
+                className="text-purple-600"
+              />
+              <span className="text-sm">True</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name={`tf_${q.id}`}
+                checked={q.correct_answer === 1}
+                onChange={() => updateQuestion(lessonIndex, qIndex, { correct_answer: 1 })}
+                className="text-purple-600"
+              />
+              <span className="text-sm">False</span>
+            </label>
+            <p className="text-xs text-gray-500 ml-auto">Select the correct answer</p>
+          </div>
+        )}
+
+        {/* Short Answer */}
+        {q.type === "short_answer" && (
+          <>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Expected Answer (for auto-grading, leave blank for manual review)
+              </label>
+              <input
+                type="text"
+                value={(q.correct_answer as string) || ""}
+                onChange={(e) =>
+                  updateQuestion(lessonIndex, qIndex, { correct_answer: e.target.value })
+                }
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="Expected answer (optional)"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Hint (optional)
+              </label>
+              <input
+                type="text"
+                value={q.hint || ""}
+                onChange={(e) =>
+                  updateQuestion(lessonIndex, qIndex, { hint: e.target.value })
+                }
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="Provide a hint for the learner"
+              />
+            </div>
+          </>
+        )}
+
+        {/* Multi-Select */}
+        {q.type === "multi_select" && (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              {q.options?.map((opt, optIndex) => (
+                <div key={optIndex} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={((q.correct_answer as number[]) || []).includes(optIndex)}
+                    onChange={() => toggleMultiSelectAnswer(lessonIndex, qIndex, optIndex)}
+                    className="text-purple-600 rounded"
+                  />
+                  <input
+                    type="text"
+                    value={opt}
+                    onChange={(e) => {
+                      const newOptions = [...(q.options || [])];
+                      newOptions[optIndex] = e.target.value;
+                      updateQuestion(lessonIndex, qIndex, { options: newOptions });
+                    }}
+                    className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder={`Option ${optIndex + 1}`}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  const newOptions = [...(q.options || []), ""];
+                  updateQuestion(lessonIndex, qIndex, { options: newOptions });
+                }}
+                className="text-xs text-purple-600 hover:text-purple-800"
+              >
+                + Add option
+              </button>
+              {(q.options?.length || 0) > 2 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newOptions = q.options?.slice(0, -1) || [];
+                    // Also remove from correct answers if needed
+                    const newAnswers = ((q.correct_answer as number[]) || [])
+                      .filter(a => a < newOptions.length);
+                    updateQuestion(lessonIndex, qIndex, {
+                      options: newOptions,
+                      correct_answer: newAnswers
+                    });
+                  }}
+                  className="text-xs text-red-600 hover:text-red-800"
+                >
+                  - Remove last option
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-gray-500">
+              Check all correct answers (multiple selections allowed)
+            </p>
+          </>
+        )}
+
+        {/* File Upload */}
+        {q.type === "file_upload" && (
+          <>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-800">
+                Learners will be prompted to upload a file (e.g., certificate, evidence of completion).
+                Files will be stored and available for review.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Accepted File Types
+                </label>
+                <input
+                  type="text"
+                  value={(q.accepted_file_types || []).join(", ")}
+                  onChange={(e) =>
+                    updateQuestion(lessonIndex, qIndex, {
+                      accepted_file_types: e.target.value.split(",").map(t => t.trim()),
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder=".pdf, .jpg, .png"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Max File Size (MB)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={q.max_file_size_mb || 10}
+                  onChange={(e) =>
+                    updateQuestion(lessonIndex, qIndex, {
+                      max_file_size_mb: parseInt(e.target.value) || 10,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Required toggle for all question types */}
+        <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
+          <input
+            type="checkbox"
+            id={`required_${q.id}`}
+            checked={q.required !== false}
+            onChange={(e) =>
+              updateQuestion(lessonIndex, qIndex, { required: e.target.checked })
+            }
+            className="text-purple-600 rounded"
+          />
+          <label htmlFor={`required_${q.id}`} className="text-xs text-gray-600">
+            Required question
+          </label>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -498,95 +850,40 @@ export default function NewModulePage() {
                               <label className="block text-sm font-medium text-gray-700">
                                 Questions ({lesson.questions?.length || 0})
                               </label>
-                              <button
-                                type="button"
-                                onClick={() => addQuestion(index)}
-                                className="flex items-center gap-1 px-3 py-1 text-xs bg-purple-50 text-purple-600 rounded hover:bg-purple-100"
-                              >
-                                <Plus className="w-3 h-3" />
-                                Add Question
-                              </button>
-                            </div>
-
-                            {lesson.questions?.map((q, qIndex) => (
-                              <div
-                                key={q.id}
-                                className="p-4 bg-gray-50 rounded-lg space-y-3"
-                              >
-                                <div className="flex items-start justify-between">
-                                  <span className="text-sm font-medium text-gray-600">
-                                    Question {qIndex + 1}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      removeQuestion(index, qIndex)
-                                    }
-                                    className="p-1 text-red-500 hover:text-red-700"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
-                                </div>
-
-                                <input
-                                  type="text"
-                                  value={q.question}
-                                  onChange={(e) =>
-                                    updateQuestion(index, qIndex, {
-                                      question: e.target.value,
-                                    })
-                                  }
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                  placeholder="Enter your question..."
-                                />
-
-                                <div className="grid grid-cols-2 gap-2">
-                                  {q.options?.map((opt, optIndex) => (
-                                    <div
-                                      key={optIndex}
-                                      className="flex items-center gap-2"
+                              <div className="relative group">
+                                <button
+                                  type="button"
+                                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                  Add Question
+                                </button>
+                                <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-2 min-w-[200px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                                  {QUESTION_TYPES.map((qt) => (
+                                    <button
+                                      key={qt.value}
+                                      type="button"
+                                      onClick={() => addQuestion(index, qt.value as QuizQuestion["type"])}
+                                      className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-3"
                                     >
-                                      <input
-                                        type="radio"
-                                        name={`correct_${q.id}`}
-                                        checked={q.correct_answer === optIndex}
-                                        onChange={() =>
-                                          updateQuestion(index, qIndex, {
-                                            correct_answer: optIndex,
-                                          })
-                                        }
-                                        className="text-purple-600"
-                                      />
-                                      <input
-                                        type="text"
-                                        value={opt}
-                                        onChange={(e) => {
-                                          const newOptions = [
-                                            ...(q.options || []),
-                                          ];
-                                          newOptions[optIndex] = e.target.value;
-                                          updateQuestion(index, qIndex, {
-                                            options: newOptions,
-                                          });
-                                        }}
-                                        className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                        placeholder={`Option ${optIndex + 1}`}
-                                      />
-                                    </div>
+                                      <qt.icon className="w-4 h-4 text-purple-500" />
+                                      <div>
+                                        <p className="text-sm font-medium text-gray-900">{qt.label}</p>
+                                        <p className="text-xs text-gray-500">{qt.description}</p>
+                                      </div>
+                                    </button>
                                   ))}
                                 </div>
-                                <p className="text-xs text-gray-500">
-                                  Select the radio button next to the correct
-                                  answer
-                                </p>
                               </div>
-                            ))}
+                            </div>
 
-                            {(!lesson.questions ||
-                              lesson.questions.length === 0) && (
+                            {lesson.questions?.map((q, qIndex) =>
+                              renderQuestionEditor(lesson, index, q, qIndex)
+                            )}
+
+                            {(!lesson.questions || lesson.questions.length === 0) && (
                               <p className="text-sm text-gray-500 text-center py-4">
-                                No questions yet. Click &quot;Add Question&quot;
-                                to get started.
+                                No questions yet. Click &quot;Add Question&quot; to get started.
                               </p>
                             )}
                           </div>
@@ -654,6 +951,21 @@ export default function NewModulePage() {
                     </p>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Question Types Reference */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Question Types
+              </h2>
+              <div className="space-y-2">
+                {QUESTION_TYPES.map((qt) => (
+                  <div key={qt.value} className="flex items-center gap-2 text-sm">
+                    <qt.icon className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-700">{qt.label}</span>
+                  </div>
+                ))}
               </div>
             </div>
 
