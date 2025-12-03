@@ -65,7 +65,8 @@ export async function getAllSchoolboxStaff(): Promise<SchoolboxStaffMember[]> {
 
       if (result.data && Array.isArray(result.data)) {
         // Map to our expected format
-        const staffPage = result.data.map((user: SchoolboxUser) => ({
+        // Note: Using 'as any' for title since it may be returned by API but not in our type
+        const staffPage = result.data.map((user: SchoolboxUser & { title?: string }) => ({
           id: user.id,
           externalId: user.externalId?.toString() || null,
           username: user.username,
