@@ -43,7 +43,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!canManageTraining(session)) {
+    if (!session || !canManageTraining(session)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
