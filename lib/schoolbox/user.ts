@@ -94,9 +94,11 @@ export async function getAllSchoolboxStaff(): Promise<SchoolboxStaffMember[]> {
         console.log(`[getAllSchoolboxStaff] No data array in response`);
       }
 
-      // Get next cursor for pagination (Schoolbox uses "metadata" not "meta")
-      cursor = result.metadata?.cursor?.next || null;
-      console.log(`[getAllSchoolboxStaff] Next cursor: ${cursor ? cursor.substring(0, 30) + "..." : "null (no more pages)"}`);
+      // Get next cursor for pagination
+      // Schoolbox uses metadata.cursor (a number) directly, not metadata.cursor.next
+      const nextCursor = result.metadata?.cursor;
+      cursor = nextCursor ? String(nextCursor) : null;
+      console.log(`[getAllSchoolboxStaff] Next cursor: ${cursor || "null (no more pages)"}, total users in system: ${result.metadata?.count || "unknown"}`);
       pageCount++;
 
     } catch (error) {

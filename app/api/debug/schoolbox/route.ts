@@ -78,10 +78,11 @@ export async function GET(request: Request) {
       tokenPrefix: apiToken.substring(0, 8) + "...",
       // Raw response structure (to debug pagination)
       responseKeys: responseJson ? Object.keys(responseJson) : [],
-      // Pagination info - Schoolbox uses "metadata" not "meta"
+      // Pagination info - Schoolbox uses metadata.cursor (a number) directly
       metadata: responseJson?.metadata || null,
-      hasNextPage: !!responseJson?.metadata?.cursor?.next,
-      nextCursor: responseJson?.metadata?.cursor?.next?.substring(0, 50) || null,
+      totalUsersInSystem: responseJson?.metadata?.count || null,
+      hasNextPage: !!responseJson?.metadata?.cursor,
+      nextCursor: responseJson?.metadata?.cursor || null,
       // User counts
       totalUsersInResponse: responseJson?.data?.length || 0,
       roleBreakdown,
