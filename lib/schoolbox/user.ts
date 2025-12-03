@@ -32,17 +32,18 @@ export async function getAllSchoolboxStaff(): Promise<SchoolboxStaffMember[]> {
   const allStaff: SchoolboxStaffMember[] = [];
   let cursor: string | null = null;
   let pageCount = 0;
-  const maxPages = 20; // Safety limit
+  const maxPages = 50; // Safety limit (50 * 500 = 25,000 max users)
 
   do {
     // Build URL with pagination - get all users then filter by role
     // Note: Schoolbox API doesn't support nested role filtering, so we fetch all and filter
-    let url = `${SCHOOLBOX_BASE_URL}/api/user?limit=100`;
+    // Use limit=500 (max allowed by Schoolbox API)
+    let url = `${SCHOOLBOX_BASE_URL}/api/user?limit=500`;
     if (cursor) {
       url += `&cursor=${encodeURIComponent(cursor)}`;
     }
 
-    console.log(`[getAllSchoolboxStaff] Fetching page ${pageCount + 1}...`);
+    console.log(`[getAllSchoolboxStaff] Fetching page ${pageCount + 1}${cursor ? ` (cursor: ${cursor.substring(0, 20)}...)` : ""}...`);
 
     try {
       const response = await fetch(url, {
@@ -60,6 +61,9 @@ export async function getAllSchoolboxStaff(): Promise<SchoolboxStaffMember[]> {
       }
 
       const result = await response.json();
+
+      // Log pagination metadata for debugging
+      console.log(`[getAllSchoolboxStaff] Meta:`, JSON.stringify(result.meta || {}));
 
       if (result.data && Array.isArray(result.data)) {
         // Map to our expected format, filtering for staff only
@@ -85,13 +89,14 @@ export async function getAllSchoolboxStaff(): Promise<SchoolboxStaffMember[]> {
           }));
 
         allStaff.push(...staffPage);
-        console.log(`[getAllSchoolboxStaff] Got ${staffPage.length} staff from ${result.data.length} users, total: ${allStaff.length}`);
+        console.log(`[getAllSchoolboxStaff] Page ${pageCount + 1}: Got ${staffPage.length} staff from ${result.data.length} users, running total: ${allStaff.length}`);
       } else {
         console.log(`[getAllSchoolboxStaff] No data array in response`);
       }
 
       // Get next cursor for pagination
       cursor = result.meta?.cursor?.next || null;
+      console.log(`[getAllSchoolboxStaff] Next cursor: ${cursor ? cursor.substring(0, 30) + "..." : "null (no more pages)"}`);
       pageCount++;
 
     } catch (error) {
@@ -101,7 +106,7 @@ export async function getAllSchoolboxStaff(): Promise<SchoolboxStaffMember[]> {
 
   } while (cursor && pageCount < maxPages);
 
-  console.log(`[getAllSchoolboxStaff] Completed. Total staff: ${allStaff.length}`);
+  console.log(`[getAllSchoolboxStaff] Completed after ${pageCount} pages. Total staff: ${allStaff.length}`);
   return allStaff;
 }
 
