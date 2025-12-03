@@ -76,10 +76,16 @@ export async function GET(request: Request) {
       baseUrl: baseUrl.replace(/^(https?:\/\/[^\/]+).*/, "$1"),
       tokenConfigured: true,
       tokenPrefix: apiToken.substring(0, 8) + "...",
-      // Pagination info
+      // Raw response structure (to debug pagination)
+      responseKeys: responseJson ? Object.keys(responseJson) : [],
+      // Pagination info - check multiple possible locations
       meta: responseJson?.meta || null,
-      hasNextPage: !!responseJson?.meta?.cursor?.next,
-      nextCursor: responseJson?.meta?.cursor?.next?.substring(0, 30) || null,
+      pagination: responseJson?.pagination || null,
+      links: responseJson?.links || null,
+      hasNextPage: !!responseJson?.meta?.cursor?.next || !!responseJson?.pagination?.next || !!responseJson?.links?.next,
+      nextCursor: responseJson?.meta?.cursor?.next?.substring(0, 30) ||
+                  responseJson?.pagination?.next?.substring(0, 30) ||
+                  responseJson?.links?.next?.substring(0, 30) || null,
       // User counts
       totalUsersInResponse: responseJson?.data?.length || 0,
       roleBreakdown,
