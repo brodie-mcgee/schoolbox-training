@@ -116,7 +116,28 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
+    // Check if Schoolbox env vars are configured
+    const baseUrl = process.env.SCHOOLBOX_BASE_URL;
+    const apiToken = process.env.SCHOOLBOX_API_TOKEN;
+
+    if (!baseUrl || baseUrl === "https://placeholder.schoolbox.com") {
+      console.error("[/api/admin/users/sync] SCHOOLBOX_BASE_URL not configured");
+      return NextResponse.json(
+        { error: "Schoolbox API not configured. Please set SCHOOLBOX_BASE_URL environment variable." },
+        { status: 500 }
+      );
+    }
+
+    if (!apiToken || apiToken === "placeholder-token") {
+      console.error("[/api/admin/users/sync] SCHOOLBOX_API_TOKEN not configured");
+      return NextResponse.json(
+        { error: "Schoolbox API not configured. Please set SCHOOLBOX_API_TOKEN environment variable." },
+        { status: 500 }
+      );
+    }
+
     console.log("[/api/admin/users/sync] Preview: Fetching staff from Schoolbox...");
+    console.log("[/api/admin/users/sync] Using base URL:", baseUrl);
 
     // Fetch all staff from Schoolbox
     const schoolboxStaff = await getAllSchoolboxStaff();
@@ -136,8 +157,10 @@ export async function GET() {
     });
   } catch (error) {
     console.error("[/api/admin/users/sync] Preview error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Preview failed";
+    console.error("[/api/admin/users/sync] Error details:", errorMessage);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Preview failed" },
+      { error: errorMessage },
       { status: 500 }
     );
   }

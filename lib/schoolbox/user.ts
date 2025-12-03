@@ -13,7 +13,7 @@ export interface SchoolboxStaffMember {
   firstName: string;
   lastName: string;
   fullName: string;
-  role: {
+  role?: {
     type: string;
     name: string;
   };
@@ -35,16 +35,19 @@ export async function getAllSchoolboxStaff(): Promise<SchoolboxStaffMember[]> {
 
   do {
     // Build filter for staff role
+    // Schoolbox API uses nested filter object: { "role": { "type": "staff" } }
     const filter = { role: { type: "staff" } };
-    const filterEncoded = encodeURIComponent(JSON.stringify(filter));
+    const filterJson = JSON.stringify(filter);
+    const filterEncoded = encodeURIComponent(filterJson);
 
     // Build URL with pagination
-    let url = `${SCHOOLBOX_BASE_URL}/api/user?filter=${filterEncoded}&limit=500`;
+    let url = `${SCHOOLBOX_BASE_URL}/api/user?filter=${filterEncoded}&limit=100`;
     if (cursor) {
       url += `&cursor=${encodeURIComponent(cursor)}`;
     }
 
     console.log(`[getAllSchoolboxStaff] Fetching page ${pageCount + 1}...`);
+    console.log(`[getAllSchoolboxStaff] Filter: ${filterJson}`);
 
     try {
       const response = await fetch(url, {
@@ -65,21 +68,25 @@ export async function getAllSchoolboxStaff(): Promise<SchoolboxStaffMember[]> {
 
       if (result.data && Array.isArray(result.data)) {
         // Map to our expected format
-        // Note: Using 'as any' for title since it may be returned by API but not in our type
-        const staffPage = result.data.map((user: SchoolboxUser & { title?: string }) => ({
-          id: user.id,
-          externalId: user.externalId?.toString() || null,
-          username: user.username,
-          email: user.email || null,
-          title: user.title || null,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          fullName: user.fullName || `${user.firstName} ${user.lastName}`,
-          role: user.role,
-        }));
+        // Note: API may return additional fields not in our type
+        const staffPage = result.data
+          .filter((user: Record<string, unknown>) => user && user.id && user.username)
+          .map((user: Record<string, unknown>) => ({
+            id: user.id as number,
+            externalId: user.externalId?.toString() || null,
+            username: user.username as string,
+            email: (user.email as string) || null,
+            title: (user.title as string) || null,
+            firstName: (user.firstName as string) || "",
+            lastName: (user.lastName as string) || "",
+            fullName: (user.fullName as string) || `${user.firstName || ""} ${user.lastName || ""}`.trim(),
+            role: user.role as { type: string; name: string } | undefined,
+          }));
 
         allStaff.push(...staffPage);
         console.log(`[getAllSchoolboxStaff] Got ${staffPage.length} staff, total: ${allStaff.length}`);
+      } else {
+        console.log(`[getAllSchoolboxStaff] No data array in response`);
       }
 
       // Get next cursor for pagination
