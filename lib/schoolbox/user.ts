@@ -1,8 +1,9 @@
 import type { SchoolboxUser } from "./auth";
 
 // Use placeholder values during build, real values at runtime
-const SCHOOLBOX_BASE_URL = process.env.SCHOOLBOX_BASE_URL || "https://placeholder.schoolbox.com";
-const SCHOOLBOX_API_TOKEN = process.env.SCHOOLBOX_API_TOKEN || "placeholder-token";
+// Trim to remove any accidental newlines from env vars
+const SCHOOLBOX_BASE_URL = (process.env.SCHOOLBOX_BASE_URL || "https://placeholder.schoolbox.com").trim();
+const SCHOOLBOX_API_TOKEN = (process.env.SCHOOLBOX_API_TOKEN || "placeholder-token").trim();
 
 export interface SchoolboxStaffMember {
   id: number;
@@ -34,20 +35,14 @@ export async function getAllSchoolboxStaff(): Promise<SchoolboxStaffMember[]> {
   const maxPages = 20; // Safety limit
 
   do {
-    // Build filter for staff role
-    // Schoolbox API uses nested filter object: { "role": { "type": "staff" } }
-    const filter = { role: { type: "staff" } };
-    const filterJson = JSON.stringify(filter);
-    const filterEncoded = encodeURIComponent(filterJson);
-
-    // Build URL with pagination
-    let url = `${SCHOOLBOX_BASE_URL}/api/user?filter=${filterEncoded}&limit=100`;
+    // Build URL with pagination - get all users then filter by role
+    // Note: Schoolbox API doesn't support nested role filtering, so we fetch all and filter
+    let url = `${SCHOOLBOX_BASE_URL}/api/user?limit=100`;
     if (cursor) {
       url += `&cursor=${encodeURIComponent(cursor)}`;
     }
 
     console.log(`[getAllSchoolboxStaff] Fetching page ${pageCount + 1}...`);
-    console.log(`[getAllSchoolboxStaff] Filter: ${filterJson}`);
 
     try {
       const response = await fetch(url, {
@@ -67,10 +62,16 @@ export async function getAllSchoolboxStaff(): Promise<SchoolboxStaffMember[]> {
       const result = await response.json();
 
       if (result.data && Array.isArray(result.data)) {
-        // Map to our expected format
+        // Map to our expected format, filtering for staff only
         // Note: API may return additional fields not in our type
         const staffPage = result.data
-          .filter((user: Record<string, unknown>) => user && user.id && user.username)
+          .filter((user: Record<string, unknown>) => {
+            // Must have id and username
+            if (!user || !user.id || !user.username) return false;
+            // Filter for staff role type
+            const role = user.role as { type?: string } | undefined;
+            return role?.type === "staff";
+          })
           .map((user: Record<string, unknown>) => ({
             id: user.id as number,
             externalId: user.externalId?.toString() || null,
@@ -84,7 +85,7 @@ export async function getAllSchoolboxStaff(): Promise<SchoolboxStaffMember[]> {
           }));
 
         allStaff.push(...staffPage);
-        console.log(`[getAllSchoolboxStaff] Got ${staffPage.length} staff, total: ${allStaff.length}`);
+        console.log(`[getAllSchoolboxStaff] Got ${staffPage.length} staff from ${result.data.length} users, total: ${allStaff.length}`);
       } else {
         console.log(`[getAllSchoolboxStaff] No data array in response`);
       }

@@ -7,8 +7,9 @@ import { NextResponse } from "next/server";
  */
 export async function GET() {
   try {
-    const baseUrl = process.env.SCHOOLBOX_BASE_URL;
-    const apiToken = process.env.SCHOOLBOX_API_TOKEN;
+    // Trim to remove any accidental newlines
+    const baseUrl = (process.env.SCHOOLBOX_BASE_URL || "").trim();
+    const apiToken = (process.env.SCHOOLBOX_API_TOKEN || "").trim();
 
     console.log("[debug/schoolbox] Testing Schoolbox API...");
 
@@ -27,11 +28,8 @@ export async function GET() {
       });
     }
 
-    // Build a simple test request - get just 3 staff
-    const filter = { role: { type: "staff" } };
-    const filterJson = JSON.stringify(filter);
-    const filterEncoded = encodeURIComponent(filterJson);
-    const testUrl = `${baseUrl}/api/user?filter=${filterEncoded}&limit=3`;
+    // Build a simple test request - get just 5 users (no filter, filter on result)
+    const testUrl = `${baseUrl}/api/user?limit=5`;
 
     console.log("[debug/schoolbox] URL:", testUrl);
 
