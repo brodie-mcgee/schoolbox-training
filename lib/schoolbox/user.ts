@@ -62,8 +62,8 @@ export async function getAllSchoolboxStaff(): Promise<SchoolboxStaffMember[]> {
 
       const result = await response.json();
 
-      // Log pagination metadata for debugging
-      console.log(`[getAllSchoolboxStaff] Meta:`, JSON.stringify(result.meta || {}));
+      // Log pagination metadata for debugging (Schoolbox uses "metadata" not "meta")
+      console.log(`[getAllSchoolboxStaff] Metadata:`, JSON.stringify(result.metadata || {}));
 
       if (result.data && Array.isArray(result.data)) {
         // Map to our expected format, filtering for staff only
@@ -94,8 +94,8 @@ export async function getAllSchoolboxStaff(): Promise<SchoolboxStaffMember[]> {
         console.log(`[getAllSchoolboxStaff] No data array in response`);
       }
 
-      // Get next cursor for pagination
-      cursor = result.meta?.cursor?.next || null;
+      // Get next cursor for pagination (Schoolbox uses "metadata" not "meta")
+      cursor = result.metadata?.cursor?.next || null;
       console.log(`[getAllSchoolboxStaff] Next cursor: ${cursor ? cursor.substring(0, 30) + "..." : "null (no more pages)"}`);
       pageCount++;
 
