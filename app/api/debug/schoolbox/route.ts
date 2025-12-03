@@ -5,11 +5,15 @@ import { NextResponse } from "next/server";
  * Public debug endpoint to test Schoolbox API connection
  * No auth required - for debugging only
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
     // Trim to remove any accidental newlines
     const baseUrl = (process.env.SCHOOLBOX_BASE_URL || "").trim();
     const apiToken = (process.env.SCHOOLBOX_API_TOKEN || "").trim();
+
+    // Check for detailed mode via query param
+    const url = new URL(request.url);
+    const detailed = url.searchParams.get("detailed") === "true";
 
     console.log("[debug/schoolbox] Testing Schoolbox API...");
 
@@ -28,8 +32,9 @@ export async function GET() {
       });
     }
 
-    // Build a simple test request - get just 5 users (no filter, filter on result)
-    const testUrl = `${baseUrl}/api/user?limit=5`;
+    // Build test request - get 500 users for detailed mode, 5 for simple mode
+    const limit = detailed ? 500 : 5;
+    const testUrl = `${baseUrl}/api/user?limit=${limit}`;
 
     console.log("[debug/schoolbox] URL:", testUrl);
 
@@ -49,18 +54,41 @@ export async function GET() {
       // Not JSON
     }
 
+    // Count users by role type
+    const roleBreakdown: Record<string, number> = {};
+    if (responseJson?.data && Array.isArray(responseJson.data)) {
+      for (const user of responseJson.data) {
+        const roleType = user.role?.type || "unknown";
+        roleBreakdown[roleType] = (roleBreakdown[roleType] || 0) + 1;
+      }
+    }
+
+    // Get sample of staff users
+    const staffUsers = responseJson?.data?.filter(
+      (u: { role?: { type?: string } }) => u.role?.type === "staff"
+    ) || [];
+
     return NextResponse.json({
       success: response.ok,
       status: response.status,
       statusText: response.statusText,
       configured: true,
-      baseUrl: baseUrl.replace(/^(https?:\/\/[^\/]+).*/, "$1"), // Just show domain
+      baseUrl: baseUrl.replace(/^(https?:\/\/[^\/]+).*/, "$1"),
       tokenConfigured: true,
       tokenPrefix: apiToken.substring(0, 8) + "...",
-      dataCount: responseJson?.data?.length || 0,
-      sampleNames: responseJson?.data?.slice(0, 3).map((u: { fullName?: string; username?: string }) =>
-        u.fullName || u.username || "Unknown"
-      ) || [],
+      // Pagination info
+      meta: responseJson?.meta || null,
+      hasNextPage: !!responseJson?.meta?.cursor?.next,
+      nextCursor: responseJson?.meta?.cursor?.next?.substring(0, 30) || null,
+      // User counts
+      totalUsersInResponse: responseJson?.data?.length || 0,
+      roleBreakdown,
+      staffCount: staffUsers.length,
+      // Sample staff names
+      sampleStaff: staffUsers.slice(0, 5).map((u: { fullName?: string; username?: string; email?: string }) => ({
+        name: u.fullName || u.username,
+        email: u.email,
+      })),
       errorMessage: !response.ok ? responseText.substring(0, 200) : undefined,
     });
   } catch (error) {
