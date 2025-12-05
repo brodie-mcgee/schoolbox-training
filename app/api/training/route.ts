@@ -14,7 +14,7 @@ export async function GET() {
 
     const { data: modules, error } = await supabase
       .from(TABLES.TRAINING_MODULES)
-      .select("id, title, description, duration_minutes, lessons, status, category, created_at")
+      .select("id, title, description, duration, lessons, status, category, created_at")
       .eq("status", "published")
       .order("created_at", { ascending: false });
 
@@ -23,9 +23,10 @@ export async function GET() {
       return NextResponse.json({ error: "Failed to fetch modules" }, { status: 500 });
     }
 
-    // Format modules to include lesson count
+    // Format modules to include lesson count and rename duration to duration_minutes for frontend
     const formattedModules = (modules || []).map((m) => ({
       ...m,
+      duration_minutes: m.duration || 0,
       lesson_count: Array.isArray(m.lessons) ? m.lessons.length : 0,
     }));
 

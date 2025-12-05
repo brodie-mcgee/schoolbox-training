@@ -38,14 +38,14 @@ export async function GET() {
 
     // Get module details
     const moduleIds = moduleEnrollments?.map((e) => e.module_id) || [];
-    let modules: Record<string, { title: string; description: string; duration_minutes: number; lessons: unknown[] }> = {};
+    let modules: Record<string, { title: string; description: string; duration: number; lessons: unknown[] }> = {};
 
     console.log("[/api/my/enrollments] Module IDs to lookup:", moduleIds);
 
     if (moduleIds.length > 0) {
       const { data: moduleData, error: moduleLookupError } = await supabase
         .from(TABLES.TRAINING_MODULES)
-        .select("id, title, description, duration_minutes, lessons")
+        .select("id, title, description, duration, lessons")
         .in("id", moduleIds);
 
       if (moduleLookupError) {
@@ -80,8 +80,8 @@ export async function GET() {
       entity_id: e.module_id,
       title: modules[e.module_id]?.title || "Unknown Module",
       description: modules[e.module_id]?.description || "",
-      duration_minutes: modules[e.module_id]?.duration_minutes || 0,
-      lesson_count: modules[e.module_id]?.lessons?.length || 0,
+      duration_minutes: modules[e.module_id]?.duration || 0,
+      lesson_count: Array.isArray(modules[e.module_id]?.lessons) ? modules[e.module_id].lessons.length : 0,
       enrolled_at: e.enrolled_at,
       due_date: e.due_date,
       started_at: e.started_at,
