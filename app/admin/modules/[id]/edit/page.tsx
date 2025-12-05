@@ -23,6 +23,7 @@ import {
   ListChecks,
 } from "lucide-react";
 import { toast } from "sonner";
+import RichTextEditor from "@/components/admin/RichTextEditor";
 
 interface Lesson {
   id: string;
@@ -769,7 +770,7 @@ export default function EditModulePage({
                   {formData.lessons.map((lesson, index) => (
                     <div
                       key={lesson.id}
-                      className="border border-gray-200 rounded-lg overflow-hidden"
+                      className="border border-gray-200 rounded-lg"
                     >
                       <div className="flex items-center gap-3 p-4 bg-gray-50 border-b border-gray-200">
                         <GripVertical className="w-4 h-4 text-gray-400 cursor-move" />
@@ -838,7 +839,7 @@ export default function EditModulePage({
                           <>
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Video URL (YouTube, Vimeo, or MP4)
+                                Video URL
                               </label>
                               <input
                                 type="url"
@@ -849,6 +850,9 @@ export default function EditModulePage({
                                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                 placeholder="https://youtube.com/watch?v=..."
                               />
+                              <p className="mt-1 text-xs text-gray-500">
+                                Supports YouTube, Vimeo, SharePoint, OneDrive, Microsoft Stream, and direct MP4 links
+                              </p>
                             </div>
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -873,16 +877,14 @@ export default function EditModulePage({
                         {lesson.type === "content" && (
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Content (Markdown supported)
+                              Content
                             </label>
-                            <textarea
-                              value={lesson.content}
-                              onChange={(e) =>
-                                updateLesson(index, { content: e.target.value })
+                            <RichTextEditor
+                              content={lesson.content}
+                              onChange={(content) =>
+                                updateLesson(index, { content })
                               }
-                              rows={6}
-                              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm"
-                              placeholder="# Lesson Content&#10;&#10;Write your lesson content here..."
+                              placeholder="Write your lesson content here..."
                             />
                           </div>
                         )}

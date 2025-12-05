@@ -9,7 +9,7 @@ interface VideoPlayerProps {
   onComplete?: () => void;
 }
 
-type VideoType = "youtube" | "vimeo" | "microsoft-stream" | "mp4" | "unknown";
+type VideoType = "youtube" | "vimeo" | "microsoft-stream" | "sharepoint" | "onedrive" | "mp4" | "unknown";
 
 export default function VideoPlayer({ videoUrl, title, onComplete }: VideoPlayerProps) {
   const [isLoading, setIsLoading] = useState(true);
@@ -18,15 +18,39 @@ export default function VideoPlayer({ videoUrl, title, onComplete }: VideoPlayer
   // Determine video type from URL
   const getVideoType = (url: string): VideoType => {
     if (!url) return "unknown";
+
+    // YouTube
     if (url.includes("youtube.com") || url.includes("youtu.be")) {
       return "youtube";
-    } else if (url.includes("microsoftstream.com") || url.includes("web.microsoftstream.com")) {
+    }
+
+    // Microsoft Stream (classic)
+    if (url.includes("microsoftstream.com") || url.includes("web.microsoftstream.com")) {
       return "microsoft-stream";
-    } else if (url.includes("vimeo.com")) {
+    }
+
+    // SharePoint (includes Stream on SharePoint)
+    // Patterns: *.sharepoint.com (but NOT *-my.sharepoint.com which is OneDrive)
+    if (url.includes("sharepoint.com") && !url.includes("-my.sharepoint.com")) {
+      return "sharepoint";
+    }
+
+    // OneDrive (personal and business)
+    // Patterns: onedrive.live.com, *-my.sharepoint.com
+    if (url.includes("onedrive.live.com") || url.includes("-my.sharepoint.com")) {
+      return "onedrive";
+    }
+
+    // Vimeo
+    if (url.includes("vimeo.com")) {
       return "vimeo";
-    } else if (url.endsWith(".mp4") || url.includes(".mp4?")) {
+    }
+
+    // MP4 direct links
+    if (url.endsWith(".mp4") || url.includes(".mp4?")) {
       return "mp4";
     }
+
     return "unknown";
   };
 
@@ -42,6 +66,87 @@ export default function VideoPlayer({ videoUrl, title, onComplete }: VideoPlayer
     const regExp = /vimeo\.com\/(?:channels\/(?:\w+\/)?|groups\/([^/]*)\/videos\/|album\/(\d+)\/video\/|)(\d+)(?:$|\/|\?)/;
     const match = url.match(regExp);
     return match ? match[3] : "";
+  };
+
+  // Transform SharePoint URL to embed format
+  const getSharePointEmbedUrl = (url: string): string => {
+    // If already an embed URL, use as-is
+    if (url.includes("embed.aspx") || url.includes("action=embedview")) {
+      return url;
+    }
+
+    // Handle SharePoint video sharing links
+    // Pattern: https://{tenant}.sharepoint.com/:v:/g/{site}/{id}
+    // Transform to embed URL
+    try {
+      const urlObj = new URL(url);
+
+      // If it's a /:v:/ sharing link, transform it
+      if (urlObj.pathname.includes("/:v:/")) {
+        // Add action=embedview to enable embedding
+        urlObj.searchParams.set("action", "embedview");
+        return urlObj.toString();
+      }
+
+      // If it's a Doc.aspx link, add embedview action
+      if (urlObj.pathname.includes("/Doc.aspx")) {
+        urlObj.searchParams.set("action", "embedview");
+        return urlObj.toString();
+      }
+
+      // For Stream on SharePoint links (/video/ paths)
+      if (urlObj.pathname.includes("/video/")) {
+        // These should work with iframe embedding directly
+        return url;
+      }
+
+      // Default: try adding embed action
+      urlObj.searchParams.set("action", "embedview");
+      return urlObj.toString();
+    } catch {
+      // If URL parsing fails, return original
+      return url;
+    }
+  };
+
+  // Transform OneDrive URL to embed format
+  const getOneDriveEmbedUrl = (url: string): string => {
+    // If already an embed URL, use as-is
+    if (url.includes("/embed")) {
+      return url;
+    }
+
+    try {
+      const urlObj = new URL(url);
+
+      // OneDrive personal: onedrive.live.com
+      if (urlObj.hostname === "onedrive.live.com") {
+        // Transform to embed URL
+        urlObj.pathname = urlObj.pathname.replace("/view", "/embed");
+        if (!urlObj.pathname.includes("/embed")) {
+          // Try converting /redir to /embed
+          urlObj.pathname = "/embed" + urlObj.search;
+        }
+        return urlObj.toString();
+      }
+
+      // OneDrive for Business: {tenant}-my.sharepoint.com
+      if (urlObj.hostname.includes("-my.sharepoint.com")) {
+        // Handle /:v:/g/personal/ sharing links
+        if (urlObj.pathname.includes("/:v:/")) {
+          urlObj.searchParams.set("action", "embedview");
+          return urlObj.toString();
+        }
+
+        // Add embed action
+        urlObj.searchParams.set("action", "embedview");
+        return urlObj.toString();
+      }
+
+      return url;
+    } catch {
+      return url;
+    }
   };
 
   const handleVideoLoad = () => {
@@ -81,6 +186,34 @@ export default function VideoPlayer({ videoUrl, title, onComplete }: VideoPlayer
           <iframe
             className="w-full h-full absolute top-0 left-0"
             src={videoUrl}
+            title={title}
+            frameBorder="0"
+            allowFullScreen
+            onLoad={handleVideoLoad}
+            onError={handleVideoError}
+          />
+        );
+
+      case "sharepoint":
+        const sharePointEmbedUrl = getSharePointEmbedUrl(videoUrl);
+        return (
+          <iframe
+            className="w-full h-full absolute top-0 left-0"
+            src={sharePointEmbedUrl}
+            title={title}
+            frameBorder="0"
+            allowFullScreen
+            onLoad={handleVideoLoad}
+            onError={handleVideoError}
+          />
+        );
+
+      case "onedrive":
+        const oneDriveEmbedUrl = getOneDriveEmbedUrl(videoUrl);
+        return (
+          <iframe
+            className="w-full h-full absolute top-0 left-0"
+            src={oneDriveEmbedUrl}
             title={title}
             frameBorder="0"
             allowFullScreen
