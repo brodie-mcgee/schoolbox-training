@@ -103,14 +103,24 @@ export default function TrainingModuleDetailPage() {
     }
   }, [moduleId]);
 
-  const handleStartModule = () => {
+  const handleStartModule = async () => {
     setIsStarted(true);
     if (module && module.lessons.length > 0) {
       setActiveLesson(module.lessons[0].id);
     }
+    // Record start in database
+    try {
+      await fetch(`/api/training/${moduleId}/progress`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "start" }),
+      });
+    } catch (err) {
+      console.error("Failed to record module start:", err);
+    }
   };
 
-  const handleLessonComplete = (lessonId: string) => {
+  const handleLessonComplete = async (lessonId: string) => {
     const updatedProgress = { ...lessonProgress, [lessonId]: true };
     setLessonProgress(updatedProgress);
 
@@ -121,6 +131,16 @@ export default function TrainingModuleDetailPage() {
 
     if (newProgress === 100) {
       toast.success("Congratulations! You've completed this training module.");
+      // Record completion in database
+      try {
+        await fetch(`/api/training/${moduleId}/progress`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "complete" }),
+        });
+      } catch (err) {
+        console.error("Failed to record module completion:", err);
+      }
     }
 
     // Move to next lesson if available
