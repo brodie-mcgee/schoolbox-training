@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -65,23 +64,18 @@ export default function TrainingModuleDetailPage() {
     async function fetchModule() {
       try {
         setLoading(true);
-        const { data, error } = await supabase
-          .from("training_modules")
-          .select("*")
-          .eq("id", moduleId)
-          .single();
+        const response = await fetch(`/api/training/${moduleId}`);
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "Failed to load training module");
+        }
+        const data = await response.json();
+        const moduleData = data.module;
 
-        if (error) throw error;
-        if (!data) {
+        if (!moduleData) {
           setError("Training module not found");
           return;
         }
-
-        // Ensure lessons is an array
-        const moduleData = {
-          ...data,
-          lessons: Array.isArray(data.lessons) ? data.lessons : [],
-        };
 
         setModule(moduleData);
 
@@ -96,9 +90,9 @@ export default function TrainingModuleDetailPage() {
           progress[lesson.id] = false;
         });
         setLessonProgress(progress);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Error fetching module:", err);
-        setError(err.message || "Failed to load training module");
+        setError(err instanceof Error ? err.message : "Failed to load training module");
       } finally {
         setLoading(false);
       }

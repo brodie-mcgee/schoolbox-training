@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase/client";
-import { getSession } from "@/lib/session";
 import {
   BookOpen,
   Clock,
-  CheckCircle,
   PlayCircle,
   ArrowLeft,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -17,8 +15,10 @@ interface TrainingModule {
   title: string;
   description: string;
   duration_minutes: number;
-  lessons: any[];
+  lessons: unknown[];
+  lesson_count: number;
   status: string;
+  category: string;
   created_at: string;
 }
 
@@ -30,17 +30,16 @@ export default function TrainingPage() {
   useEffect(() => {
     async function fetchModules() {
       try {
-        const { data, error } = await supabase
-          .from("training_modules")
-          .select("*")
-          .eq("status", "published")
-          .order("created_at", { ascending: false });
-
-        if (error) throw error;
-        setModules(data || []);
-      } catch (err: any) {
+        const response = await fetch("/api/training");
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "Failed to fetch modules");
+        }
+        const data = await response.json();
+        setModules(data.modules || []);
+      } catch (err: unknown) {
         console.error("Error fetching modules:", err);
-        setError(err.message);
+        setError(err instanceof Error ? err.message : "Failed to load modules");
       } finally {
         setLoading(false);
       }
@@ -52,7 +51,10 @@ export default function TrainingPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-600" />
+          <p className="text-gray-500 mt-2">Loading training modules...</p>
+        </div>
       </div>
     );
   }
@@ -132,7 +134,7 @@ export default function TrainingPage() {
                     </div>
                     <div className="flex items-center gap-1">
                       <PlayCircle className="w-4 h-4" />
-                      <span>{module.lessons?.length || 0} lessons</span>
+                      <span>{module.lesson_count || 0} lessons</span>
                     </div>
                   </div>
                 </div>

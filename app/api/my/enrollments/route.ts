@@ -36,11 +36,18 @@ export async function GET() {
     const moduleIds = moduleEnrollments?.map((e) => e.module_id) || [];
     let modules: Record<string, { title: string; description: string; duration_minutes: number; lessons: unknown[] }> = {};
 
+    console.log("[/api/my/enrollments] Module IDs to lookup:", moduleIds);
+
     if (moduleIds.length > 0) {
-      const { data: moduleData } = await supabase
+      const { data: moduleData, error: moduleLookupError } = await supabase
         .from(TABLES.TRAINING_MODULES)
         .select("id, title, description, duration_minutes, lessons")
         .in("id", moduleIds);
+
+      if (moduleLookupError) {
+        console.error("[/api/my/enrollments] Module lookup error:", moduleLookupError);
+      }
+      console.log("[/api/my/enrollments] Found modules:", moduleData?.map(m => ({ id: m.id, title: m.title })));
 
       moduleData?.forEach((m) => {
         modules[m.id] = m;
