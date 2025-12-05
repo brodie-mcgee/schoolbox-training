@@ -4,11 +4,13 @@ import Link from "next/link";
 import {
   LayoutDashboard,
   Users,
+  UsersRound,
   BookOpen,
   GraduationCap,
   BarChart3,
   Settings,
   ChevronLeft,
+  ClipboardList,
 } from "lucide-react";
 
 // Navigation items - some are admin-only
@@ -17,6 +19,8 @@ const getAdminNavItems = (isAdmin: boolean) => {
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
     { href: "/admin/modules", label: "Modules", icon: BookOpen },
     { href: "/admin/courses", label: "Courses", icon: GraduationCap },
+    { href: "/admin/enrollments", label: "Enrollments", icon: ClipboardList },
+    { href: "/admin/groups", label: "Groups", icon: UsersRound },
   ];
 
   // Users & Roles is admin-only (not for HR)

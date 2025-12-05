@@ -31,4 +31,6 @@ export const TABLES = {
   TRAINING_EVIDENCE: "training_evidence",
   TRAINING_LOGS: "training_logs",
   AUTO_ENROLLMENT_SETTINGS: "auto_enrollment_settings",
+  TRAINING_GROUPS: "training_groups",
+  TRAINING_GROUP_MEMBERS: "training_group_members",
 } as const;

@@ -6,7 +6,7 @@ import {
   Search,
   Users,
   User,
-  Building2,
+  UsersRound,
   BookOpen,
   GraduationCap,
   Loader2,
@@ -34,8 +34,17 @@ interface User {
   id: string;
   name: string;
   email: string;
-  departments?: string[];
   roles?: string[];
+}
+
+interface Group {
+  id: string;
+  name: string;
+  member_count: number;
+}
+
+interface GroupMember {
+  user_id: string;
 }
 
 interface AssignTrainingModalProps {
@@ -45,7 +54,7 @@ interface AssignTrainingModalProps {
   preselectedEntityId?: string;
 }
 
-type SelectionMode = "individual" | "department" | "role" | "all";
+type SelectionMode = "individual" | "group" | "role" | "all";
 
 export default function AssignTrainingModal({
   onClose,
@@ -65,31 +74,43 @@ export default function AssignTrainingModal({
 
   // Step 2: Select users
   const [users, setUsers] = useState<User[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [selectionMode, setSelectionMode] = useState<SelectionMode>("individual");
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  const [selectedDepartment, setSelectedDepartment] = useState<string>("");
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
   const [selectedRole, setSelectedRole] = useState<string>("");
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [expandedSection, setExpandedSection] = useState<string | null>("users");
+  const [groupMembers, setGroupMembers] = useState<string[]>([]);
+  const [loadingGroupMembers, setLoadingGroupMembers] = useState(false);
 
   // Step 3: Set due date
   const [dueDate, setDueDate] = useState<string>("");
 
   // Derived data
-  const departments = [...new Set(users.flatMap((u) => u.departments || []))].filter(Boolean).sort();
   const roles = [...new Set(users.flatMap((u) => u.roles || []))].filter(Boolean).sort();
 
   useEffect(() => {
     loadData();
   }, []);
 
+  // Load group members when a group is selected
+  useEffect(() => {
+    if (selectedGroupId && selectionMode === "group") {
+      loadGroupMembers(selectedGroupId);
+    } else {
+      setGroupMembers([]);
+    }
+  }, [selectedGroupId, selectionMode]);
+
   async function loadData() {
     setLoading(true);
     try {
-      const [modulesRes, coursesRes, usersRes] = await Promise.all([
+      const [modulesRes, coursesRes, usersRes, groupsRes] = await Promise.all([
         fetch("/api/admin/modules"),
         fetch("/api/admin/courses"),
         fetch("/api/admin/users"),
+        fetch("/api/admin/groups"),
       ]);
 
       if (modulesRes.ok) {
@@ -106,6 +127,11 @@ export default function AssignTrainingModal({
         const data = await usersRes.json();
         setUsers(data.users || []);
       }
+
+      if (groupsRes.ok) {
+        const data = await groupsRes.json();
+        setGroups(data.groups || []);
+      }
     } catch (error) {
       console.error("Failed to load data:", error);
       toast.error("Failed to load data");
@@ -114,12 +140,27 @@ export default function AssignTrainingModal({
     }
   }
 
+  async function loadGroupMembers(groupId: string) {
+    setLoadingGroupMembers(true);
+    try {
+      const response = await fetch(`/api/admin/groups/${groupId}/members`);
+      if (response.ok) {
+        const data = await response.json();
+        setGroupMembers(data.members?.map((m: GroupMember) => m.user_id) || []);
+      }
+    } catch (error) {
+      console.error("Failed to load group members:", error);
+    } finally {
+      setLoadingGroupMembers(false);
+    }
+  }
+
   function getSelectedUsers(): User[] {
     switch (selectionMode) {
       case "all":
         return users;
-      case "department":
-        return users.filter((u) => u.departments?.includes(selectedDepartment));
+      case "group":
+        return users.filter((u) => groupMembers.includes(u.id));
       case "role":
         return users.filter((u) => u.roles?.includes(selectedRole));
       case "individual":
@@ -338,7 +379,7 @@ export default function AssignTrainingModal({
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                     {[
                       { mode: "individual" as const, label: "Individual", icon: User },
-                      { mode: "department" as const, label: "Department", icon: Building2 },
+                      { mode: "group" as const, label: "Group", icon: UsersRound },
                       { mode: "role" as const, label: "Role", icon: Users },
                       { mode: "all" as const, label: "All Staff", icon: Users },
                     ].map(({ mode, label, icon: Icon }) => (
@@ -358,19 +399,32 @@ export default function AssignTrainingModal({
                   </div>
 
                   {/* Selection Options */}
-                  {selectionMode === "department" && (
-                    <select
-                      value={selectedDepartment}
-                      onChange={(e) => setSelectedDepartment(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    >
-                      <option value="">Select department...</option>
-                      {departments.map((dept) => (
-                        <option key={dept} value={dept}>
-                          {dept} ({users.filter((u) => u.departments?.includes(dept)).length} users)
-                        </option>
-                      ))}
-                    </select>
+                  {selectionMode === "group" && (
+                    <div>
+                      <select
+                        value={selectedGroupId}
+                        onChange={(e) => setSelectedGroupId(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="">Select group...</option>
+                        {groups.map((group) => (
+                          <option key={group.id} value={group.id}>
+                            {group.name} ({group.member_count} members)
+                          </option>
+                        ))}
+                      </select>
+                      {groups.length === 0 && (
+                        <p className="text-sm text-gray-500 mt-2">
+                          No groups available. Create groups in the Groups section first.
+                        </p>
+                      )}
+                      {loadingGroupMembers && (
+                        <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Loading group members...
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   {selectionMode === "role" && (
