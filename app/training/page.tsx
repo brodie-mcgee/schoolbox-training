@@ -25,7 +25,8 @@ interface TrainingModule {
 }
 
 interface Enrollment {
-  module_id: string;
+  entity_id: string;  // This is the module_id from the API
+  type: "module" | "course";
   completed: boolean;
   completed_at?: string;
   started_at?: string;
@@ -54,12 +55,15 @@ export default function TrainingPage() {
         const modulesData = await modulesRes.json();
         setModules(modulesData.modules || []);
 
-        // Process enrollments into a lookup map
+        // Process enrollments into a lookup map (only module type)
         if (enrollmentsRes.ok) {
           const enrollmentsData = await enrollmentsRes.json();
           const enrollmentMap: Record<string, Enrollment> = {};
           (enrollmentsData.enrollments || []).forEach((e: Enrollment) => {
-            enrollmentMap[e.module_id] = e;
+            // Only include module enrollments (not courses)
+            if (e.type === "module") {
+              enrollmentMap[e.entity_id] = e;
+            }
           });
           setEnrollments(enrollmentMap);
         }
