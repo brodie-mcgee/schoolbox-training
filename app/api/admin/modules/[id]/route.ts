@@ -68,7 +68,7 @@ export async function PATCH(
     if (body.description !== undefined) updateData.description = body.description;
     if (body.category !== undefined) updateData.category = body.category;
     if (body.status !== undefined) updateData.status = body.status;
-    if (body.duration_minutes !== undefined) updateData.duration_minutes = body.duration_minutes;
+    if (body.duration_minutes !== undefined) updateData.duration = body.duration_minutes;
     if (body.lessons !== undefined) updateData.lessons = body.lessons;
     if (body.pass_score !== undefined) updateData.pass_score = body.pass_score;
     if (body.max_attempts !== undefined) updateData.max_attempts = body.max_attempts;

@@ -25,7 +25,7 @@ export async function GET(
     // Get module details first
     const { data: module, error: moduleError } = await supabase
       .from(TABLES.TRAINING_MODULES)
-      .select("id, title, description, status, duration_minutes, category")
+      .select("id, title, description, status, duration, category")
       .eq("id", moduleId)
       .single();
 
