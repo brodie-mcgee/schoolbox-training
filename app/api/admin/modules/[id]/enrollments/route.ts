@@ -47,7 +47,6 @@ export async function GET(
         assigned,
         assigned_by,
         assigned_at,
-        progress,
         user:users!module_enrollments_user_id_fkey(id, name, email)
       `)
       .eq("module_id", moduleId)
@@ -80,7 +79,7 @@ export async function GET(
         user_name: user?.name || "Unknown User",
         user_email: user?.email || "",
         status,
-        progress: e.progress || 0,
+        progress: e.completed ? 100 : (e.started_at ? 50 : 0),
         enrolled_at: e.enrolled_at,
         started_at: e.started_at,
         completed_at: e.completed_at,
