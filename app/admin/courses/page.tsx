@@ -13,9 +13,11 @@ import {
   Archive,
   Clock,
   Loader2,
+  UserPlus,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import AssignTrainingModal from "@/components/admin/AssignTrainingModal";
 
 interface Course {
   id: string;
@@ -34,6 +36,7 @@ export default function CoursesPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [assigningCourse, setAssigningCourse] = useState<string | null>(null);
 
   useEffect(() => {
     loadCourses();
@@ -245,6 +248,15 @@ export default function CoursesPage() {
                   <td className="px-6 py-4">{getStatusBadge(course.status)}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
+                      {course.status === "published" && (
+                        <button
+                          onClick={() => setAssigningCourse(course.id)}
+                          className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="Assign to users"
+                        >
+                          <UserPlus className="w-4 h-4" />
+                        </button>
+                      )}
                       <Link
                         href={`/courses/${course.id}`}
                         className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
@@ -273,6 +285,16 @@ export default function CoursesPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* Assign Training Modal */}
+      {assigningCourse && (
+        <AssignTrainingModal
+          onClose={() => setAssigningCourse(null)}
+          onSuccess={() => setAssigningCourse(null)}
+          preselectedType="course"
+          preselectedEntityId={assigningCourse}
+        />
       )}
     </div>
   );

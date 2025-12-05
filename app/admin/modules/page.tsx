@@ -13,9 +13,11 @@ import {
   Archive,
   Loader2,
   MoreVertical,
+  UserPlus,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import AssignTrainingModal from "@/components/admin/AssignTrainingModal";
 
 interface TrainingModule {
   id: string;
@@ -35,6 +37,7 @@ export default function ModulesPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [assigningModule, setAssigningModule] = useState<string | null>(null);
 
   useEffect(() => {
     loadModules();
@@ -227,6 +230,15 @@ export default function ModulesPage() {
 
               <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
+                  {module.status === "published" && (
+                    <button
+                      onClick={() => setAssigningModule(module.id)}
+                      className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                      title="Assign to users"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                    </button>
+                  )}
                   <Link
                     href={`/training/${module.id}`}
                     className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
@@ -285,6 +297,16 @@ export default function ModulesPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Assign Training Modal */}
+      {assigningModule && (
+        <AssignTrainingModal
+          onClose={() => setAssigningModule(null)}
+          onSuccess={() => setAssigningModule(null)}
+          preselectedType="module"
+          preselectedEntityId={assigningModule}
+        />
       )}
     </div>
   );
