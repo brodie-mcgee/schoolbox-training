@@ -12,11 +12,15 @@ export async function GET() {
 
     const supabase = createServerSupabaseClient();
 
+    console.log("[/api/my/enrollments] Session userId:", session.userId);
+
     // Fetch module enrollments for the current user
     const { data: moduleEnrollments, error: moduleError } = await supabase
       .from(TABLES.MODULE_ENROLLMENTS)
       .select("*")
       .eq("user_id", session.userId);
+
+    console.log("[/api/my/enrollments] Module enrollments found:", moduleEnrollments?.length || 0, moduleEnrollments);
 
     if (moduleError) {
       console.error("[/api/my/enrollments] Module enrollments error:", moduleError);
