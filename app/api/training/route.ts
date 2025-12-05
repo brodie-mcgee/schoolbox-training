@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { createServerSupabaseClient, TABLES } from "@/lib/supabase/server";
 
-// GET - Fetch published training modules for authenticated users
+// GET - Fetch published PUBLIC training modules for authenticated users
+// Private modules are only visible through user's enrollments
 export async function GET() {
   try {
     const session = await getSession();
@@ -12,10 +13,12 @@ export async function GET() {
 
     const supabase = createServerSupabaseClient();
 
+    // Only fetch public modules (private modules only show via enrollments)
     const { data: modules, error } = await supabase
       .from(TABLES.TRAINING_MODULES)
-      .select("id, title, description, duration, lessons, status, category, created_at")
+      .select("id, title, description, duration, lessons, status, category, visibility, created_at")
       .eq("status", "published")
+      .eq("visibility", "public")
       .order("created_at", { ascending: false });
 
     if (error) {

@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
         description: body.description,
         category: body.category,
         status: body.status || "draft",
+        visibility: body.visibility || "public",
         duration: body.duration_minutes || 0,
         lessons: body.lessons || [],
         pass_score: body.pass_score || 80,

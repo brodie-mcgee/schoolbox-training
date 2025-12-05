@@ -21,12 +21,18 @@ interface TrainingModule {
   lesson_count: number;
   status: string;
   category: string;
+  visibility?: string;
   created_at: string;
+  isAssigned?: boolean;  // True if this is a private module the user is assigned to
 }
 
 interface Enrollment {
   entity_id: string;  // This is the module_id from the API
   type: "module" | "course";
+  title: string;
+  description: string;
+  duration_minutes: number;
+  lesson_count: number;
   completed: boolean;
   completed_at?: string;
   started_at?: string;
@@ -41,7 +47,7 @@ export default function TrainingPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        // Fetch modules and enrollments in parallel
+        // Fetch public modules and user's enrollments in parallel
         const [modulesRes, enrollmentsRes] = await Promise.all([
           fetch("/api/training"),
           fetch("/api/my/enrollments"),
@@ -53,20 +59,43 @@ export default function TrainingPage() {
         }
 
         const modulesData = await modulesRes.json();
-        setModules(modulesData.modules || []);
+        const publicModules: TrainingModule[] = modulesData.modules || [];
 
-        // Process enrollments into a lookup map (only module type)
+        // Process enrollments
+        const enrollmentMap: Record<string, Enrollment> = {};
+        const assignedModules: TrainingModule[] = [];
+
         if (enrollmentsRes.ok) {
           const enrollmentsData = await enrollmentsRes.json();
-          const enrollmentMap: Record<string, Enrollment> = {};
           (enrollmentsData.enrollments || []).forEach((e: Enrollment) => {
-            // Only include module enrollments (not courses)
             if (e.type === "module") {
               enrollmentMap[e.entity_id] = e;
+
+              // Check if this module is NOT in the public list (meaning it's private/assigned)
+              const isInPublicList = publicModules.some((m) => m.id === e.entity_id);
+              if (!isInPublicList) {
+                // Add private assigned module to the list
+                assignedModules.push({
+                  id: e.entity_id,
+                  title: e.title,
+                  description: e.description,
+                  duration_minutes: e.duration_minutes,
+                  lessons: [],
+                  lesson_count: e.lesson_count,
+                  status: "published",
+                  category: "",
+                  visibility: "private",
+                  created_at: "",
+                  isAssigned: true,
+                });
+              }
             }
           });
-          setEnrollments(enrollmentMap);
         }
+
+        // Combine public modules with private assigned modules
+        setModules([...publicModules, ...assignedModules]);
+        setEnrollments(enrollmentMap);
       } catch (err: unknown) {
         console.error("Error fetching data:", err);
         setError(err instanceof Error ? err.message : "Failed to load modules");
@@ -127,20 +156,27 @@ export default function TrainingPage() {
                 <BookOpen className="w-5 h-5 text-purple-600" />
               )}
             </div>
-            {status === "completed" ? (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                <CheckCircle className="w-3 h-3 mr-1" />
-                Completed
-              </span>
-            ) : status === "in_progress" ? (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                In Progress
-              </span>
-            ) : (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                Available
-              </span>
-            )}
+            <div className="flex gap-1 flex-wrap justify-end">
+              {module.isAssigned && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                  Assigned
+                </span>
+              )}
+              {status === "completed" ? (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Completed
+                </span>
+              ) : status === "in_progress" ? (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                  In Progress
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  Available
+                </span>
+              )}
+            </div>
           </div>
 
           <h3 className={`font-semibold mb-2 transition-colors ${
