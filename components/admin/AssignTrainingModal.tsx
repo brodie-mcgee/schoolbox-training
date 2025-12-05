@@ -77,9 +77,10 @@ export default function AssignTrainingModal({
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectionMode, setSelectionMode] = useState<SelectionMode>("individual");
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [selectedRole, setSelectedRole] = useState<string>("");
   const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [groupSearchQuery, setGroupSearchQuery] = useState("");
   const [expandedSection, setExpandedSection] = useState<string | null>("users");
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
   const [loadingGroupMembers, setLoadingGroupMembers] = useState(false);
@@ -94,14 +95,14 @@ export default function AssignTrainingModal({
     loadData();
   }, []);
 
-  // Load group members when a group is selected
+  // Load group members when groups are selected
   useEffect(() => {
-    if (selectedGroupId && selectionMode === "group") {
-      loadGroupMembers(selectedGroupId);
+    if (selectedGroupIds.length > 0 && selectionMode === "group") {
+      loadGroupMembers(selectedGroupIds);
     } else {
       setGroupMembers([]);
     }
-  }, [selectedGroupId, selectionMode]);
+  }, [selectedGroupIds, selectionMode]);
 
   async function loadData() {
     setLoading(true);
@@ -140,19 +141,47 @@ export default function AssignTrainingModal({
     }
   }
 
-  async function loadGroupMembers(groupId: string) {
+  async function loadGroupMembers(groupIds: string[]) {
     setLoadingGroupMembers(true);
     try {
-      const response = await fetch(`/api/admin/groups/${groupId}/members`);
-      if (response.ok) {
-        const data = await response.json();
-        setGroupMembers(data.members?.map((m: GroupMember) => m.user_id) || []);
+      // Fetch members from all selected groups in parallel
+      const responses = await Promise.all(
+        groupIds.map((id) => fetch(`/api/admin/groups/${id}/members`))
+      );
+
+      // Collect all unique user IDs from all groups
+      const allMemberIds = new Set<string>();
+      for (const response of responses) {
+        if (response.ok) {
+          const data = await response.json();
+          data.members?.forEach((m: GroupMember) => allMemberIds.add(m.user_id));
+        }
       }
+      setGroupMembers([...allMemberIds]);
     } catch (error) {
       console.error("Failed to load group members:", error);
     } finally {
       setLoadingGroupMembers(false);
     }
+  }
+
+  function toggleGroupSelection(groupId: string) {
+    if (selectedGroupIds.includes(groupId)) {
+      setSelectedGroupIds(selectedGroupIds.filter((id) => id !== groupId));
+    } else {
+      setSelectedGroupIds([...selectedGroupIds, groupId]);
+    }
+  }
+
+  function selectAllGroups() {
+    const filteredGroups = groups.filter((g) =>
+      g.name.toLowerCase().includes(groupSearchQuery.toLowerCase())
+    );
+    setSelectedGroupIds([...new Set([...selectedGroupIds, ...filteredGroups.map((g) => g.id)])]);
+  }
+
+  function clearGroupSelection() {
+    setSelectedGroupIds([]);
   }
 
   function getSelectedUsers(): User[] {
@@ -400,26 +429,85 @@ export default function AssignTrainingModal({
 
                   {/* Selection Options */}
                   {selectionMode === "group" && (
-                    <div>
-                      <select
-                        value={selectedGroupId}
-                        onChange={(e) => setSelectedGroupId(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      >
-                        <option value="">Select group...</option>
-                        {groups.map((group) => (
-                          <option key={group.id} value={group.id}>
-                            {group.name} ({group.member_count} members)
-                          </option>
-                        ))}
-                      </select>
-                      {groups.length === 0 && (
-                        <p className="text-sm text-gray-500 mt-2">
-                          No groups available. Create groups in the Groups section first.
-                        </p>
+                    <div className="space-y-3">
+                      {/* Search */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Search groups..."
+                          value={groupSearchQuery}
+                          onChange={(e) => setGroupSearchQuery(e.target.value)}
+                          className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        />
+                      </div>
+
+                      {/* Selection Actions */}
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">
+                          {selectedGroupIds.length} group{selectedGroupIds.length !== 1 ? "s" : ""} selected
+                          {groupMembers.length > 0 && (
+                            <span className="text-purple-600 ml-1">
+                              ({groupMembers.length} unique users)
+                            </span>
+                          )}
+                        </span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={selectAllGroups}
+                            className="text-purple-600 hover:text-purple-800"
+                          >
+                            Select all
+                          </button>
+                          <button
+                            onClick={clearGroupSelection}
+                            className="text-gray-500 hover:text-gray-700"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Group List */}
+                      {groups.length === 0 ? (
+                        <div className="text-center py-4 border border-gray-200 rounded-lg">
+                          <p className="text-gray-500">No groups available.</p>
+                          <p className="text-sm text-gray-400 mt-1">
+                            Create groups in the Groups section first.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
+                          {groups
+                            .filter((g) =>
+                              g.name.toLowerCase().includes(groupSearchQuery.toLowerCase())
+                            )
+                            .map((group) => (
+                              <label
+                                key={group.id}
+                                className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedGroupIds.includes(group.id)}
+                                  onChange={() => toggleGroupSelection(group.id)}
+                                  className="w-4 h-4 text-purple-600 rounded"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-gray-900 truncate">
+                                    {group.name}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {group.member_count} member{group.member_count !== 1 ? "s" : ""}
+                                  </p>
+                                </div>
+                              </label>
+                            ))}
+                        </div>
                       )}
+
                       {loadingGroupMembers && (
-                        <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
                           <Loader2 className="w-4 h-4 animate-spin" />
                           Loading group members...
                         </div>
