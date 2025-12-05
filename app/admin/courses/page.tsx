@@ -14,6 +14,7 @@ import {
   Clock,
   Loader2,
   UserPlus,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -248,6 +249,13 @@ export default function CoursesPage() {
                   <td className="px-6 py-4">{getStatusBadge(course.status)}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
+                      <Link
+                        href={`/admin/courses/${course.id}/enrollments`}
+                        className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        title="View enrollments"
+                      >
+                        <Users className="w-4 h-4" />
+                      </Link>
                       {course.status === "published" && (
                         <button
                           onClick={() => setAssigningCourse(course.id)}

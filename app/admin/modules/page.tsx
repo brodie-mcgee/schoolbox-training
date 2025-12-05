@@ -14,6 +14,7 @@ import {
   Loader2,
   MoreVertical,
   UserPlus,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -230,6 +231,13 @@ export default function ModulesPage() {
 
               <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
+                  <Link
+                    href={`/admin/modules/${module.id}/enrollments`}
+                    className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                    title="View enrollments"
+                  >
+                    <Users className="w-4 h-4" />
+                  </Link>
                   {module.status === "published" && (
                     <button
                       onClick={() => setAssigningModule(module.id)}
